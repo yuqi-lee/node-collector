@@ -10,8 +10,11 @@ import (
 )
 
 const (
-	localIP      = "192.168.1.117"
-	pingInterval = 20 // 毫秒数
+	localIP      string = "192.168.1.117"
+	targetIP1    string = "192.168.1.116"
+	targetIP2    string = "192.168.1.103"
+	pingInterval        = 20   // pinger发包间隔毫秒数
+	promInterval        = 1000 // prometheus采样间隔毫秒数
 )
 
 func recordBytesAndPacketsTotal(mp *ebpf.Map) error {
@@ -53,7 +56,8 @@ func recordPingRTT(ip string) error {
 	p.Interval = pingInterval * time.Millisecond
 
 	p.OnRecv = func(pkt *ping.Packet) {
-		pingRTT.WithLabelValues(localIP, p.Addr()).Set(float64(pkt.Rtt.Microseconds()))
+		offset := (time.Now().UnixMilli() % promInterval) / pingInterval
+		pingRTT.WithLabelValues(localIP, p.Addr(), strconv.FormatInt(offset, 10)).Set(float64(pkt.Rtt.Microseconds()))
 	}
 
 	return nil

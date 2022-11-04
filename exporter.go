@@ -26,7 +26,7 @@ var (
 	pingRTT = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ping_rtt_time",
 		Help: "ping rtt time from ip_src to ip_dst (us)",
-	}, []string{"src", "dst"})
+	}, []string{"src", "dst", "offset"})
 )
 
 func monitorBytesAndPackets() {
@@ -53,14 +53,14 @@ func monitorBytesAndPackets() {
 
 func monitorPingRTT() {
 	go func() {
-		err := recordPingRTT("192.168.1.116")
+		err := recordPingRTT(targetIP1)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
 	go func() {
-		err := recordPingRTT("192.168.1.103")
+		err := recordPingRTT(targetIP2)
 		if err != nil {
 			panic(err)
 		}

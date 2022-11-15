@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -16,14 +16,19 @@ var (
 )
 
 const (
-	csvPathIP   = "name_ip.csv"
-	csvPathVeth = "name_veth.csv"
+	csvPathIP   string = "name_ip.csv"
+	csvPathVeth string = "name_veth.csv"
+
+	dynamicConfig bool = true
 )
 
 func podIPInfoInit() {
-	err := genIPInfo()
-	if err != nil {
-		panic(err)
+
+	if dynamicConfig {
+		err := genIPInfo()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	f, err := os.Open(csvPathIP)
@@ -34,23 +39,26 @@ func podIPInfoInit() {
 
 	reader := csv.NewReader(f)
 	reader.Comma = ';'
-	var record string
+	var record []string
 	for err != io.EOF {
 		record, err = reader.Read()
-		slice := strings.Split(record, " ")
-		if len(slice) < 2 {
-			log.Printf("csv file (name_ip.csv) format error.")
+		if len(record) < 2 {
+			log.Printf("csv file (name_ip.csv) format error with %d colum.", len(record))
 		} else {
-			mapName2ip.Store(slice[0], slice[1])
+			mapName2ip.Store(record[0], record[1])
 		}
 	}
 }
 
 func podVethInfoInit() {
-	err := genVethInfo()
-	if err != nil {
-		panic(err)
-	}
+
+	/*
+		if dynamicConfig {
+			err := genVethInfo()
+			if err != nil {
+				panic(err)
+			}
+		}*/
 
 	f, err := os.Open(csvPathVeth)
 	if err != nil {
@@ -60,27 +68,42 @@ func podVethInfoInit() {
 
 	reader := csv.NewReader(f)
 	reader.Comma = ';'
-	var record string
+	var record []string
 	for err != io.EOF {
 		record, err = reader.Read()
-		slice := strings.Split(record, " ")
-		if len(slice) < 2 {
-			log.Printf("csv file (name_veth.csv) format error.")
+		if len(record) < 2 {
+			log.Printf("csv file (name_ip.csv) format error.")
 		} else {
-			mapName2veth.Store(slice[0], slice[1])
+			mapName2ip.Store(record[0], record[1])
 		}
 	}
 }
 func genIPInfo() error {
-	cmd := exec.Command("kubectl", "get", "pods", "-n", "hotel")
+	cmd := exec.Command("bash", "-c", "kubectl get po -n hotel-reservation -o wide |  awk '/skv-node4/{print $1, $6}' > name_ip.csv")
 	err := cmd.Run()
-
+	log.Println(err)
 	return err
 }
 
 func genVethInfo() error {
-	cmd := exec.Command("kubectl", "get", "pods", "-n", "hotel")
-	err := cmd.Run()
 
-	return err
+	return nil
+}
+
+func updateName2ip() {
+	go func() {
+		for {
+			// 每隔一秒更新一次map
+			time.Sleep(time.Second)
+
+			//先清空所有的 Key
+			mapName2ip.Range(func(k, v interface{}) bool {
+				mapName2ip.Delete(k)
+				return true
+			})
+
+			//重新 initialize
+			podIPInfoInit()
+		}
+	}()
 }

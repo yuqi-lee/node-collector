@@ -20,7 +20,7 @@ const (
 	tcpRecordInterval  = 100 // 读取tcp连接数的时间间隔毫秒数
 	vethRecordInterval = 100 // 读取网卡丢包数据的时间间隔毫秒数
 
-	k8sNamespace string = ""
+	k8sNamespace string = "hotel-reservation"
 )
 
 func recordBytesAndPacketsTotal(mp *ebpf.Map) error {
@@ -69,7 +69,7 @@ func recordPingRTT(ip string) error {
 	return nil
 }
 
-func recordTCPConnections(podName string) error {
+func recordTCPConnections(podName string, ip string) error {
 
 	offset := (time.Now().UnixMilli() % promInterval) / tcpRecordInterval
 
@@ -86,7 +86,17 @@ func recordTCPConnections(podName string) error {
 			tcpConnections.WithLabelValues("host-skvnode4", strconv.FormatInt(offset, 10)).Set(float64Res)
 		}
 	} else {
+		cmdStr := "kubectl exec -it -n" + k8sNamespace + podName + "-- wc -l /proc/net/tcp"
+		cmd := exec.Command("bash", "-c", cmdStr)
+		err := cmd.Run()
+		if err != nil {
+			return err
+		} else {
+			rawRes, _ := cmd.CombinedOutput()
+			float64Res, _ := strconv.ParseFloat(CutString(string(rawRes)), 64)
 
+			tcpConnections.WithLabelValues("host-skvnode4", strconv.FormatInt(offset, 10)).Set(float64Res)
+		}
 	}
 
 	return nil

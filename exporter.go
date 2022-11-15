@@ -39,7 +39,7 @@ var (
 	}, []string{"pod", "offset"})
 )
 
-func init() {
+func collectorInit() {
 	podIPInfoInit()
 	podVethInfoInit()
 }
@@ -58,10 +58,10 @@ func monitorBytesAndPackets() {
 			time.Sleep(time.Second)
 			err := recordBytesAndPacketsTotal(mp)
 			if err != ebpf.ErrKeyNotExist {
-				fmt.Printf("monitor bytes and packets failed: %s", err.Error())
+				fmt.Printf("monitor bytes and packets failed: %s\n", err.Error())
 			}
 			cnt = cnt + 1
-			fmt.Printf("Round %d is finished.", cnt)
+			//fmt.Printf("Round %d is finished.", cnt)
 		}
 	}()
 }
@@ -87,13 +87,25 @@ func monitorTCPConnections() {
 		for {
 			time.Sleep(tcpRecordInterval * time.Millisecond)
 
-			//TODO: for 这里改为遍历map
-			for cnt := 1; cnt < 2; cnt++ {
-				//go recordTCPConnections("tcp-test")
-				recordTCPConnections("tcp-test")
-			}
+			mapName2ip.Range(func(key, value interface{}) bool {
+				name := key.(string)
+				ip := value.(string)
+
+				if name != "" && ip != "" {
+					go func() {
+						err := recordTCPConnections(name, ip)
+						if err != nil {
+							log.Println(err)
+						}
+					}()
+				}
+
+				return true
+			})
 		}
 	}()
+
+	//updateName2ip()
 }
 
 func monitorVethDroppedNum() {
@@ -121,11 +133,12 @@ func monitorVethDroppedNum() {
 }
 
 func main() {
-	init()
+	collectorInit()
 
 	monitorBytesAndPackets()
-
 	monitorPingRTT()
+	monitorTCPConnections()
+	// monitorVethDroppedNum()
 
 	http.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":40901", nil)

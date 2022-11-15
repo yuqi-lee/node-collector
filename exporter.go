@@ -27,7 +27,22 @@ var (
 		Name: "ping_rtt_time",
 		Help: "ping rtt time from ip_src to ip_dst (us)",
 	}, []string{"src", "dst", "offset"})
+
+	tcpConnections = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "tcp_connections",
+		Help: "number of spod's tcp connections",
+	}, []string{"pod", "offset"})
+
+	vethDroppedNum = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "veth_dropped_num",
+		Help: "number of (pod's) veth's tx_dropped",
+	}, []string{"pod", "offset"})
 )
+
+func init() {
+	podIPInfoInit()
+	podVethInfoInit()
+}
 
 func monitorBytesAndPackets() {
 	go func() {
@@ -67,8 +82,46 @@ func monitorPingRTT() {
 	}()
 }
 
+func monitorTCPConnections() {
+	go func() {
+		for {
+			time.Sleep(tcpRecordInterval * time.Millisecond)
+
+			//TODO: for 这里改为遍历map
+			for cnt := 1; cnt < 2; cnt++ {
+				//go recordTCPConnections("tcp-test")
+				recordTCPConnections("tcp-test")
+			}
+		}
+	}()
+}
+
+func monitorVethDroppedNum() {
+	go func() {
+		for {
+			time.Sleep(100 * time.Millisecond)
+
+			mapName2veth.Range(func(key, value interface{}) bool {
+				name := key.(string)
+				veth := value.(string)
+
+				if name != "" && veth != "" {
+					go func() {
+						err := recordVethDropped(name, veth)
+						if err != nil {
+							log.Println(err)
+						}
+					}()
+				}
+
+				return true
+			})
+		}
+	}()
+}
+
 func main() {
-	//bpfMapLoad()
+	init()
 
 	monitorBytesAndPackets()
 

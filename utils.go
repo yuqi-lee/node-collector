@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func InetNtoA(ip int32) string {
 	return fmt.Sprintf("%d.%d.%d.%d",
@@ -13,4 +16,9 @@ func InttoProtocol(protocol int32) string {
 	} else {
 		return "ipv6"
 	}
+}
+
+func CutString(str string) string {
+	slice := strings.Split(str, " ")
+	return slice[0]
 }

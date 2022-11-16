@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"io"
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -18,36 +20,42 @@ var (
 const (
 	csvPathIP   string = "name_ip.csv"
 	csvPathVeth string = "name_veth.csv"
-
-	dynamicConfig bool = true
 )
 
 func podIPInfoInit() {
 
-	if dynamicConfig {
-		err := genIPInfo()
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	f, err := os.Open(csvPathIP)
+	cmdStr := "kubectl --kubeconfig /home/ridx/.kube/config get po -n " + k8sNamespace + " -o wide |  awk '/skv-node4/{print $1, $6}'"
+	cmd := exec.Command("bash", "-c", cmdStr)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
-	defer f.Close()
 
-	reader := csv.NewReader(f)
-	reader.Comma = ';'
-	var record []string
-	for err != io.EOF {
-		record, err = reader.Read()
-		if len(record) < 2 {
-			log.Printf("csv file (name_ip.csv) format error with %d colum.", len(record))
-		} else {
-			mapName2ip.Store(record[0], record[1])
-		}
+	outStr /*errStr*/, _ := string(stdout.Bytes()), string(stderr.Bytes())
+	// fmt.Printf("cmd: %s 's output is:\n %s\n", cmdStr, outStr)
+	// fmt.Printf("cmd: %s 's error is:\n %s\n", cmdStr, errStr)
+	outStr = strings.Replace(outStr, "\n", " ", -1)
+	slice := strings.Split(outStr, " ")
+	var i int
+	for i = 0; i < len(slice)-1; i = i + 2 {
+		mapName2ip.Store(slice[i], slice[i+1])
 	}
+
+	log.Printf("map (name -> ip) loads %d entries.", i/2)
+
+	/*
+		fmt.Printf("logs =================================\n")
+		mapName2ip.Range(func(key, value interface{}) bool {
+			name := key.(string)
+			ip := value.(string)
+			fmt.Printf("%s %s\n", name, ip)
+			return true
+		})
+		fmt.Printf("logs =================================\n")
+	*/
 }
 
 func podVethInfoInit() {
@@ -78,29 +86,20 @@ func podVethInfoInit() {
 		}
 	}
 }
-func genIPInfo() error {
-	cmd := exec.Command("bash", "-c", "kubectl get po -n hotel-reservation -o wide |  awk '/skv-node4/{print $1, $6}' > name_ip.csv")
-	err := cmd.Run()
-	log.Println(err)
-	return err
-}
-
-func genVethInfo() error {
-
-	return nil
-}
 
 func updateName2ip() {
 	go func() {
 		for {
-			// 每隔一秒更新一次map
-			time.Sleep(time.Second)
+			// 每隔 2 秒更新一次 map
+			time.Sleep(2 * time.Second)
 
 			//先清空所有的 Key
 			mapName2ip.Range(func(k, v interface{}) bool {
 				mapName2ip.Delete(k)
 				return true
 			})
+
+			log.Printf("map (name -> ip) is empty now.")
 
 			//重新 initialize
 			podIPInfoInit()

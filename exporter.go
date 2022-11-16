@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -41,7 +43,7 @@ var (
 
 func collectorInit() {
 	podIPInfoInit()
-	podVethInfoInit()
+	// podVethInfoInit() 暂时只统计 eno1
 }
 
 func monitorBytesAndPackets() {
@@ -57,11 +59,11 @@ func monitorBytesAndPackets() {
 		for {
 			time.Sleep(time.Second)
 			err := recordBytesAndPacketsTotal(mp)
-			if err != ebpf.ErrKeyNotExist {
+			if !errors.Is(err, ebpf.ErrKeyNotExist) {
 				fmt.Printf("monitor bytes and packets failed: %s\n", err.Error())
 			}
 			cnt = cnt + 1
-			//fmt.Printf("Round %d is finished.", cnt)
+			log.Printf("ebpf map reading: round %d is finished.", cnt)
 		}
 	}()
 }
@@ -91,9 +93,11 @@ func monitorTCPConnections() {
 				name := key.(string)
 				ip := value.(string)
 
-				if name != "" && ip != "" {
+				ipaddr := net.ParseIP(ip)
+
+				if name != "" && ipaddr != nil {
 					go func() {
-						err := recordTCPConnections(name, ip)
+						err := recordTCPConnections(name, ipaddr.String())
 						if err != nil {
 							log.Println(err)
 						}
@@ -105,29 +109,18 @@ func monitorTCPConnections() {
 		}
 	}()
 
-	//updateName2ip()
+	updateName2ip()
 }
 
 func monitorVethDroppedNum() {
 	go func() {
 		for {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(vethRecordInterval * time.Millisecond)
 
-			mapName2veth.Range(func(key, value interface{}) bool {
-				name := key.(string)
-				veth := value.(string)
-
-				if name != "" && veth != "" {
-					go func() {
-						err := recordVethDropped(name, veth)
-						if err != nil {
-							log.Println(err)
-						}
-					}()
-				}
-
-				return true
-			})
+			err := recordVethDroppedV2()
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}()
 }
@@ -138,7 +131,7 @@ func main() {
 	monitorBytesAndPackets()
 	monitorPingRTT()
 	monitorTCPConnections()
-	// monitorVethDroppedNum()
+	monitorVethDroppedNum()
 
 	http.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":40901", nil)

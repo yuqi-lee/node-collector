@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"log"
 	"os/exec"
 	"strconv"
 	"time"
@@ -86,7 +87,7 @@ func recordTCPConnections(podName string, ip string) error {
 			tcpConnections.WithLabelValues("host-skvnode4", strconv.FormatInt(offset, 10)).Set(float64Res)
 		}
 	} else {
-		cmdStr := "kubectl exec -it -n" + k8sNamespace + podName + "-- wc -l /proc/net/tcp"
+		cmdStr := "kubectl --kubeconfig /home/ridx/.kube/config exec -it -n " + k8sNamespace + podName + "-- wc -l /proc/net/tcp"
 		cmd := exec.Command("bash", "-c", cmdStr)
 		err := cmd.Run()
 		if err != nil {
@@ -94,8 +95,8 @@ func recordTCPConnections(podName string, ip string) error {
 		} else {
 			rawRes, _ := cmd.CombinedOutput()
 			float64Res, _ := strconv.ParseFloat(CutString(string(rawRes)), 64)
-
-			tcpConnections.WithLabelValues("host-skvnode4", strconv.FormatInt(offset, 10)).Set(float64Res)
+			log.Printf("pod %s has %v tcp connections", podName, float64Res)
+			tcpConnections.WithLabelValues(ip, strconv.FormatInt(offset, 10)).Set(float64Res)
 		}
 	}
 
@@ -117,5 +118,23 @@ func recordVethDropped(pod string, veth string) error {
 
 	vethDroppedNum.WithLabelValues(pod, strconv.FormatInt(offset, 10)).Set(float64Res)
 
+	return nil
+}
+
+func recordVethDroppedV2() error { //只记录 eno1 的网卡队列信息
+
+	offset := (time.Now().UnixMilli() % promInterval) / vethRecordInterval
+
+	cmdStr := "cat /sys/class/net/eno1/statistics/tx_dropped"
+	cmd := exec.Command("bash", "-c", cmdStr)
+
+	err := cmd.Run()
+	if err != nil {
+		return errors.New("record veth dropped num failed." + err.Error())
+	}
+
+	rawRes, _ := cmd.CombinedOutput()
+	float64Res, _ := strconv.ParseFloat(string(rawRes), 64)
+	vethDroppedNum.WithLabelValues(localIP+":eno1", strconv.FormatInt(offset, 10)).Set(float64Res)
 	return nil
 }

@@ -22,6 +22,11 @@ go1.18+版本
 
 ## 升级
 
-每次pull之后，根据所在host替换`metrics.go`中的三个`const string`：`localIP`、`targetIP1`、`targetIP2`
+每次pull之后修改`metrics.go`中的三个`const string`
 
-更改prometheus的采样间隔后，更新`metrics.go`中的`promInterval`
+* 根据所在host替换：`localIP`、`targetIP1`、`targetIP2`、`hostName`
+* 根据需要修改`kubeConfigPath`和`k8sNamespace`
+
+更改prometheus的采样间隔后
+
+* 更新`metrics.go`中的`promInterval`

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"log"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -89,12 +91,19 @@ func recordTCPConnections(podName string, ip string) error {
 	} else {
 		cmdStr := "kubectl --kubeconfig /home/ridx/.kube/config exec -it -n " + k8sNamespace + podName + "-- wc -l /proc/net/tcp"
 		cmd := exec.Command("bash", "-c", cmdStr)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
 		err := cmd.Run()
 		if err != nil {
 			return err
 		} else {
-			rawRes, _ := cmd.CombinedOutput()
-			float64Res, _ := strconv.ParseFloat(CutString(string(rawRes)), 64)
+			outStr, _ := string(stdout.Bytes()), string(stderr.Bytes())
+			outStr = strings.Replace(outStr, "\n", "", -1) // 删去换行符，要不然转float会出错
+			float64Res, err := strconv.ParseFloat(outStr, 64)
+			if err != nil {
+				log.Printf("recordTCPConnections: string to float64 error: %s", err.Error())
+			}
 			log.Printf("pod %s has %v tcp connections", podName, float64Res)
 			tcpConnections.WithLabelValues(ip, strconv.FormatInt(offset, 10)).Set(float64Res)
 		}
@@ -127,14 +136,21 @@ func recordVethDroppedV2() error { //只记录 eno1 的网卡队列信息
 
 	cmdStr := "cat /proc/net/dev | awk '/eno1:/{print $5}'"
 	cmd := exec.Command("bash", "-c", cmdStr)
-
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
 		return errors.New("record veth dropped num failed." + err.Error())
 	}
 
-	rawRes, _ := cmd.CombinedOutput()
-	float64Res, _ := strconv.ParseFloat(string(rawRes), 64)
+	outStr, _ := string(stdout.Bytes()), string(stderr.Bytes())
+	outStr = strings.Replace(outStr, "\n", "", -1) // 删去换行符，要不然转float会出错
+	float64Res, err := strconv.ParseFloat(outStr, 64)
+	if err != nil {
+		log.Printf("recordVethDroppedV2: string to float64 error: %s", err.Error())
+	}
+	//log.Printf("%s 's eno1 dropped num is %v : %s", localIP, float64Res, outStr)
 	vethDroppedNum.WithLabelValues(localIP+":eno1", strconv.FormatInt(offset, 10)).Set(float64Res)
 	return nil
 }

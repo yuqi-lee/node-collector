@@ -125,7 +125,7 @@ func recordVethDroppedV2() error { //只记录 eno1 的网卡队列信息
 
 	offset := (time.Now().UnixMilli() % promInterval) / vethRecordInterval
 
-	cmdStr := "cat /sys/class/net/eno1/statistics/tx_dropped"
+	cmdStr := "cat /proc/net/dev | awk '/eno1:/{print $5}'"
 	cmd := exec.Command("bash", "-c", cmdStr)
 
 	err := cmd.Run()

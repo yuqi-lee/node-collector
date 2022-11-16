@@ -24,7 +24,7 @@ const (
 
 func podIPInfoInit() {
 
-	cmdStr := "kubectl --kubeconfig /home/ridx/.kube/config get po -n " + k8sNamespace + " -o wide |  awk '/skv-node4/{print $1, $6}'"
+	cmdStr := "kubectl --kubeconfig " + kubeConfigPath + " get po -n " + k8sNamespace + " -o wide |  awk '/" + hostName + "/{print $1, $6}'"
 	cmd := exec.Command("bash", "-c", cmdStr)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

@@ -23,7 +23,9 @@ const (
 	tcpRecordInterval  = 100 // 读取tcp连接数的时间间隔毫秒数
 	vethRecordInterval = 100 // 读取网卡丢包数据的时间间隔毫秒数
 
-	k8sNamespace string = "hotel-reservation"
+	k8sNamespace   string = "hotel-reservation"
+	hostName       string = "skv-node4"
+	kubeConfigPath string = "/home/ridx/.kube/config"
 )
 
 func recordBytesAndPacketsTotal(mp *ebpf.Map) error {

@@ -31,7 +31,7 @@ func podIPInfoInit() {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		log.Println(err)
+		log.Printf("kubectl get pods failed:%s\n", err.Error())
 	}
 
 	outStr /*errStr*/, _ := string(stdout.Bytes()), string(stderr.Bytes())

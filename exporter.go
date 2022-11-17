@@ -100,7 +100,7 @@ func monitorTCPConnections() {
 					go func() {
 						err := recordTCPConnections(name, ipaddr.String())
 						if err != nil {
-							log.Println(err)
+							log.Printf("name:%s, ip:%s record tcp connections failed:%s\n", name, ipaddr.String(), err.Error())
 						}
 					}()
 				}

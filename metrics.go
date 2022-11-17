@@ -76,22 +76,26 @@ func recordTCPConnections(podName string, ip string) error {
 			tcpConnections.WithLabelValues("host-skvnode4", strconv.FormatInt(offset, 10)).Set(float64Res)
 		}
 	} else {
-		cmdStr := "kubectl --kubeconfig " + collectorConfig.KubeConfigPath + " exec -it -n " + collectorConfig.K8sNamespace + podName + "-- wc -l /proc/net/tcp"
+		cmdStr := "kubectl --kubeconfig " + collectorConfig.KubeConfigPath + " exec -it -n " + collectorConfig.K8sNamespace + " " + podName + " -- wc -l /proc/net/tcp"
+		//log.Printf("current command is: %s\n", cmdStr)
+
 		cmd := exec.Command("bash", "-c", cmdStr)
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
 		err := cmd.Run()
 		if err != nil {
+			log.Printf("exec word count in pods(name:%s, ip:%s) falied.\n", podName, ip)
 			return err
 		} else {
 			outStr, _ := string(stdout.Bytes()), string(stderr.Bytes())
+			outStr = CutString(outStr)                     // 把字符串后面的文件名截去
 			outStr = strings.Replace(outStr, "\n", "", -1) // 删去换行符，要不然转float会出错
 			float64Res, err := strconv.ParseFloat(outStr, 64)
 			if err != nil {
 				log.Printf("recordTCPConnections: string to float64 error: %s", err.Error())
 			}
-			log.Printf("pod %s has %v tcp connections", podName, float64Res)
+			//log.Printf("pod %s has %v tcp connections", podName, float64Res)
 			tcpConnections.WithLabelValues(ip, strconv.FormatInt(offset, 10)).Set(float64Res)
 		}
 	}

@@ -24,7 +24,12 @@ go1.18+版本
 
 在本地仓库 pull 代码（上游已经设置为 `https://github.com/yuqi-lee/node-collector.git`）
 
-根据需要修改本地的 `config.json` 中的内容
+各个hsot上本地仓库路径：
 
+* skv-node1: /home/k8s/exper/lyq/node-collector
+* skv-node3: /home/k8s/exper/lyq/node-collector
+* skv-node4: /home/ridx/lyq/k8s/node-collector
+
+根据需要修改本地的 `config.json` 中的内容（这个文件没有上传到github仓库，各个host根据需要自己修改即可）
 
 

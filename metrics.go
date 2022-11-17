@@ -13,21 +13,6 @@ import (
 	"github.com/go-ping/ping"
 )
 
-const (
-	localIP      string = "192.168.1.117"
-	targetIP1    string = "192.168.1.116"
-	targetIP2    string = "192.168.1.103"
-	pingInterval        = 20   // pinger发包间隔毫秒数
-	promInterval        = 1000 // prometheus采样间隔毫秒数
-
-	tcpRecordInterval  = 100 // 读取tcp连接数的时间间隔毫秒数
-	vethRecordInterval = 100 // 读取网卡丢包数据的时间间隔毫秒数
-
-	k8sNamespace   string = "hotel-reservation"
-	hostName       string = "skv-node4"
-	kubeConfigPath string = "/home/ridx/.kube/config"
-)
-
 func recordBytesAndPacketsTotal(mp *ebpf.Map) error {
 	var key1, key2 Key
 	var value Value
@@ -64,11 +49,11 @@ func recordPingRTT(ip string) error {
 	}
 	defer p.Run()
 
-	p.Interval = pingInterval * time.Millisecond
+	p.Interval = time.Duration(collectorConfig.PingInterval) * time.Millisecond
 
 	p.OnRecv = func(pkt *ping.Packet) {
-		offset := (time.Now().UnixMilli() % promInterval) / pingInterval
-		pingRTT.WithLabelValues(localIP, p.Addr(), strconv.FormatInt(offset, 10)).Set(float64(pkt.Rtt.Microseconds()))
+		offset := (time.Now().UnixMilli() % collectorConfig.PromInterval) / collectorConfig.PingInterval
+		pingRTT.WithLabelValues(collectorConfig.LocalIP, p.Addr(), strconv.FormatInt(offset, 10)).Set(float64(pkt.Rtt.Microseconds()))
 	}
 
 	return nil
@@ -76,7 +61,7 @@ func recordPingRTT(ip string) error {
 
 func recordTCPConnections(podName string, ip string) error {
 
-	offset := (time.Now().UnixMilli() % promInterval) / tcpRecordInterval
+	offset := (time.Now().UnixMilli() % collectorConfig.PromInterval) / collectorConfig.TcpRecordInterval
 
 	if podName == "tcp-test" {
 		// 测试用，上传host本地的总TCP连接数
@@ -91,7 +76,7 @@ func recordTCPConnections(podName string, ip string) error {
 			tcpConnections.WithLabelValues("host-skvnode4", strconv.FormatInt(offset, 10)).Set(float64Res)
 		}
 	} else {
-		cmdStr := "kubectl --kubeconfig /home/ridx/.kube/config exec -it -n " + k8sNamespace + podName + "-- wc -l /proc/net/tcp"
+		cmdStr := "kubectl --kubeconfig " + collectorConfig.KubeConfigPath + " exec -it -n " + collectorConfig.K8sNamespace + podName + "-- wc -l /proc/net/tcp"
 		cmd := exec.Command("bash", "-c", cmdStr)
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
@@ -115,7 +100,7 @@ func recordTCPConnections(podName string, ip string) error {
 }
 
 func recordVethDropped(pod string, veth string) error {
-	offset := (time.Now().UnixMilli() % promInterval) / vethRecordInterval
+	offset := (time.Now().UnixMilli() % collectorConfig.PromInterval) / collectorConfig.VethRecordInterval
 
 	catPath := "/sys/class/net/" + veth + "/statistics/tx_dropped"
 	cmd := exec.Command("cat", catPath)
@@ -134,7 +119,7 @@ func recordVethDropped(pod string, veth string) error {
 
 func recordVethDroppedV2() error { //只记录 eno1 的网卡队列信息
 
-	offset := (time.Now().UnixMilli() % promInterval) / vethRecordInterval
+	offset := (time.Now().UnixMilli() % collectorConfig.PromInterval) / collectorConfig.VethRecordInterval
 
 	cmdStr := "cat /proc/net/dev | awk '/eno1:/{print $5}'"
 	cmd := exec.Command("bash", "-c", cmdStr)
@@ -152,7 +137,7 @@ func recordVethDroppedV2() error { //只记录 eno1 的网卡队列信息
 	if err != nil {
 		log.Printf("recordVethDroppedV2: string to float64 error: %s", err.Error())
 	}
-	//log.Printf("%s 's eno1 dropped num is %v : %s", localIP, float64Res, outStr)
-	vethDroppedNum.WithLabelValues(localIP+":eno1", strconv.FormatInt(offset, 10)).Set(float64Res)
+	//log.Printf("%s 's eno1 dropped num is %v : %s", collectorConfig.LocalIP, float64Res, outStr)
+	vethDroppedNum.WithLabelValues(collectorConfig.LocalIP+":eno1", strconv.FormatInt(offset, 10)).Set(float64Res)
 	return nil
 }

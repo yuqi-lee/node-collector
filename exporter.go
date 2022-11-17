@@ -42,6 +42,7 @@ var (
 )
 
 func collectorInit() {
+	CollectorConfigInit()
 	podIPInfoInit()
 	// podVethInfoInit() 暂时只统计 eno1
 }
@@ -70,14 +71,14 @@ func monitorBytesAndPackets() {
 
 func monitorPingRTT() {
 	go func() {
-		err := recordPingRTT(targetIP1)
+		err := recordPingRTT(collectorConfig.TargetIP1)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
 	go func() {
-		err := recordPingRTT(targetIP2)
+		err := recordPingRTT(collectorConfig.TargetIP2)
 		if err != nil {
 			panic(err)
 		}
@@ -87,7 +88,7 @@ func monitorPingRTT() {
 func monitorTCPConnections() {
 	go func() {
 		for {
-			time.Sleep(tcpRecordInterval * time.Millisecond)
+			time.Sleep(time.Duration(collectorConfig.TcpRecordInterval) * time.Millisecond)
 
 			mapName2ip.Range(func(key, value interface{}) bool {
 				name := key.(string)
@@ -115,7 +116,7 @@ func monitorTCPConnections() {
 func monitorVethDroppedNum() {
 	go func() {
 		for {
-			time.Sleep(vethRecordInterval * time.Millisecond)
+			time.Sleep(time.Duration(collectorConfig.VethRecordInterval) * time.Millisecond)
 
 			err := recordVethDroppedV2()
 			if err != nil {
@@ -130,8 +131,14 @@ func main() {
 
 	monitorBytesAndPackets()
 	monitorPingRTT()
-	monitorTCPConnections()
-	monitorVethDroppedNum()
+
+	if collectorConfig.TcpRecordInterval > 0 {
+		monitorTCPConnections()
+	}
+
+	if collectorConfig.VethRecordInterval > 0 {
+		monitorVethDroppedNum()
+	}
 
 	http.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":40901", nil)

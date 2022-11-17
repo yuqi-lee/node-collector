@@ -24,7 +24,7 @@ const (
 
 func podIPInfoInit() {
 
-	cmdStr := "kubectl --kubeconfig " + kubeConfigPath + " get po -n " + k8sNamespace + " -o wide |  awk '/" + hostName + "/{print $1, $6}'"
+	cmdStr := "kubectl --kubeconfig " + collectorConfig.KubeConfigPath + " get po -n " + collectorConfig.K8sNamespace + " -o wide |  awk '/" + collectorConfig.HostName + "/{print $1, $6}'"
 	cmd := exec.Command("bash", "-c", cmdStr)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -56,6 +56,17 @@ func podIPInfoInit() {
 		})
 		fmt.Printf("logs =================================\n")
 	*/
+}
+
+func genMap(outStr string) {
+	outStr = strings.Replace(outStr, "\n", " ", -1)
+	slice := strings.Split(outStr, " ")
+	var i int
+	for i = 0; i < len(slice)-1; i = i + 2 {
+		mapName2ip.Store(slice[i], slice[i+1])
+	}
+
+	log.Printf("map (name -> ip) loads %d entries.", i/2)
 }
 
 func podVethInfoInit() {

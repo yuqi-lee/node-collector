@@ -26,7 +26,7 @@ go1.18+版本
 
 > git pull --rebase
 
-各个hsot上本地仓库路径：
+各个host上本地仓库路径：
 
 * skv-node1: /home/k8s/exper/lyq/node-collector
 * skv-node3: /home/k8s/exper/lyq/node-collector

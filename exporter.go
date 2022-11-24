@@ -49,7 +49,7 @@ func collectorInit() {
 
 func monitorBytesAndPackets() {
 	go func() {
-		mp, err := ebpf.LoadPinnedMap("/sys/fs/bpf/try", nil)
+		mp, err := ebpf.LoadPinnedMap(collectorConfig.BpfMapPath, nil)
 		if err != nil {
 			panic(err)
 		} else {

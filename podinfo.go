@@ -102,7 +102,7 @@ func updateName2ip() {
 	go func() {
 		for {
 			// 每隔 2 秒更新一次 map
-			time.Sleep(2 * time.Second)
+			time.Sleep(time.Duration(collectorConfig.PodInfoUpdateInterval) * time.Second)
 
 			//先清空所有的 Key
 			mapName2ip.Range(func(k, v interface{}) bool {
